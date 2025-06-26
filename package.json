@@ -2,11 +2,12 @@
   "name": "logdy-runner",
   "displayName": "Logdy Runner",
   "description": "Logdy 로그 뷰어를 안전하게 실행하는 VS Code 익스텐션",
-  "version": "1.0.0",
-  "publisher": "ruo",
+  "version": "1.0.5",
+  "publisher": "ruolee",
   "engines": {
-    "vscode": "^1.101.0"
+    "vscode": "^1.74.0"
   },
+  "icon": "images/logdy-runner.png",
   "categories": [
     "Other"
   ],
@@ -17,85 +18,47 @@
     "logs"
   ],
   "activationEvents": [
-    "onCommand:logdy-runner.runLogdy",
-    "onCommand:logdy-runner.runLogdyWithFile",
-    "onCommand:logdy-runner.stopLogdy",
-    "onCommand:logdy-runner.openBrowser",
-    "onStartupFinished"
+    "*"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "logdy-runner.runLogdy",
-        "title": "Logdy: 자동 로그 파일 감지 실행",
-        "category": "Logdy"
-      },
-      {
-        "command": "logdy-runner.runLogdyWithFile",
-        "title": "Logdy: 특정 로그 파일로 실행",
-        "category": "Logdy"
-      },
-      {
-        "command": "logdy-runner.stopLogdy",
-        "title": "Logdy: 중지",
-        "category": "Logdy"
-      },
-      {
-        "command": "logdy-runner.openBrowser",
-        "title": "Logdy: 웹 인터페이스 열기",
-        "category": "Logdy"
-      },
-      {
-        "command": "logdy-runner.configurePortRange",
-        "title": "Logdy: 포트 범위 설정",
-        "category": "Logdy"
+        "command": "logdy-runner.refreshView",
+        "title": "새로고침",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
-      "explorer/context": [
+      "view/title": [
         {
-          "command": "logdy-runner.runLogdyWithFile",
-          "when": "resourceExtname == .log",
+          "command": "logdy-runner.refreshView",
+          "when": "view == logdyView",
           "group": "navigation"
         }
-      ],
-      "commandPalette": [
+      ]
+    },
+    "views": {
+      "logdyContainer": [
         {
-          "command": "logdy-runner.runLogdy"
-        },
+          "id": "logdyView",
+          "name": "Logdy Runner",
+          "when": "true"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
         {
-          "command": "logdy-runner.runLogdyWithFile"
-        },
-        {
-          "command": "logdy-runner.stopLogdy"
-        },
-        {
-          "command": "logdy-runner.openBrowser"
-        },
-        {
-          "command": "logdy-runner.configurePortRange"
+          "id": "logdyContainer",
+          "title": "Logdy Runner",
+          "icon": "images/logdy-runner.png"
         }
       ]
     },
     "configuration": {
       "title": "Logdy Runner",
       "properties": {
-        "logdy-runner.scriptPath": {
-          "type": "string",
-          "default": "./run_logdy_safe.sh",
-          "description": "Logdy 실행 스크립트의 경로"
-        },
-        "logdy-runner.autoOpenBrowser": {
-          "type": "boolean",
-          "default": true,
-          "description": "Logdy 실행 시 자동으로 브라우저 열기"
-        },
-        "logdy-runner.terminalName": {
-          "type": "string",
-          "default": "Logdy",
-          "description": "Logdy 실행용 터미널 이름"
-        },
         "logdy-runner.portRange": {
           "type": "object",
           "default": {
@@ -131,7 +94,7 @@
     "package": "vsce package"
   },
   "devDependencies": {
-    "@types/vscode": "^1.101.0",
+    "@types/vscode": "^1.74.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
     "@types/glob": "^8.1.0",
