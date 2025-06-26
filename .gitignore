@@ -1,0 +1,65 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript 빌드 결과
+out/
+dist/
+
+# VS Code
+.vscode-test/
+
+# 테스트 커버리지
+coverage/
+
+# 환경 변수
+.env
+.env.local
+.env.*.local
+
+# 로그 파일
+*.log
+
+# 런타임 데이터
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# 디렉토리 종속성
+.nyc_output
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# 패키지된 익스텐션 파일
+*.vsix
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+
+# JetBrains IDE
+.idea/
+
+# 백업 파일
+*~
+*.bak
+
+# 임시 파일
+*.tmp
+*.temp

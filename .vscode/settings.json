@@ -1,0 +1,26 @@
+{
+    "typescript.preferences.quotes": "single",
+    "typescript.preferences.includePackageJsonAutoImports": "off",
+    "typescript.suggest.autoImports": true,
+    "typescript.updateImportsOnFileMove.enabled": "always",
+    
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "explicit",
+        "source.organizeImports": "explicit"
+    },
+    
+    "files.associations": {
+        "*.ts": "typescript"
+    },
+    
+    "search.exclude": {
+        "out": true,
+        "node_modules": true,
+        ".vscode-test": true
+    },
+    
+    "eslint.validate": [
+        "typescript"
+    ]
+}
