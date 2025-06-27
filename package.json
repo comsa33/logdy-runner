@@ -1,110 +1,120 @@
 {
-  "name": "logdy-runner",
-  "displayName": "Logdy Runner",
-  "description": "Logdy 로그 뷰어를 안전하게 실행하는 VS Code 익스텐션",
-  "version": "1.0.5",
-  "publisher": "ruolee",
-  "engines": {
-    "vscode": "^1.74.0"
-  },
-  "icon": "images/logdy-runner.png",
-  "categories": [
-    "Other"
-  ],
-  "keywords": [
-    "logdy",
-    "log viewer",
-    "monitoring",
-    "logs"
-  ],
-  "activationEvents": [
-    "*"
-  ],
-  "main": "./out/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "logdy-runner.refreshView",
-        "title": "새로고침",
-        "icon": "$(refresh)"
-      }
+    "name": "logdy-runner",
+    "displayName": "Logdy Runner",
+    "description": "Logdy 로그 뷰어를 안전하게 실행하는 VS Code 익스텐션",
+    "version": "1.1.4",
+    "publisher": "ruolee",
+    "engines": {
+        "vscode": "^1.74.0"
+    },
+    "icon": "images/logdy-runner-no-bg-icon.png",
+    "categories": [
+        "Other"
     ],
-    "menus": {
-      "view/title": [
-        {
-          "command": "logdy-runner.refreshView",
-          "when": "view == logdyView",
-          "group": "navigation"
-        }
-      ]
+    "keywords": [
+        "logdy",
+        "log viewer",
+        "monitoring",
+        "logs"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/comsa33/logdy-runner.git"
     },
-    "views": {
-      "logdyContainer": [
-        {
-          "id": "logdyView",
-          "name": "Logdy Runner",
-          "when": "true"
-        }
-      ]
+    "homepage": "https://github.com/comsa33/logdy-runner#readme",
+    "bugs": {
+        "url": "https://github.com/comsa33/logdy-runner/issues"
     },
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "logdyContainer",
-          "title": "Logdy Runner",
-          "icon": "images/logdy-runner.png"
-        }
-      ]
-    },
-    "configuration": {
-      "title": "Logdy Runner",
-      "properties": {
-        "logdy-runner.portRange": {
-          "type": "object",
-          "default": {
-            "start": 10001,
-            "end": 10099
-          },
-          "properties": {
-            "start": {
-              "type": "number",
-              "minimum": 1024,
-              "maximum": 65535,
-              "description": "시작 포트 번호"
-            },
-            "end": {
-              "type": "number",
-              "minimum": 1024,
-              "maximum": 65535,
-              "description": "종료 포트 번호"
+    "activationEvents": [
+        "*"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "logdy-runner.refreshView",
+                "title": "새로고침",
+                "icon": "$(refresh)"
             }
-          },
-          "description": "Logdy가 사용할 포트 범위 설정"
+        ],
+        "menus": {
+            "view/title": [
+                {
+                    "command": "logdy-runner.refreshView",
+                    "when": "view == logdyView",
+                    "group": "navigation"
+                }
+            ]
+        },
+        "views": {
+            "logdyContainer": [
+                {
+                    "id": "logdyView",
+                    "name": "Logdy Runner",
+                    "type": "webview",
+                    "when": "true"
+                }
+            ]
+        },
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "logdyContainer",
+                    "title": "Logdy Runner",
+                    "icon": "images/logdy-runner-no-bg-icon.png"
+                }
+            ]
+        },
+        "configuration": {
+            "title": "Logdy Runner",
+            "properties": {
+                "logdy-runner.portRange": {
+                    "type": "object",
+                    "default": {
+                        "start": 10001,
+                        "end": 10099
+                    },
+                    "properties": {
+                        "start": {
+                            "type": "number",
+                            "minimum": 1024,
+                            "maximum": 65535,
+                            "description": "시작 포트 번호"
+                        },
+                        "end": {
+                            "type": "number",
+                            "minimum": 1024,
+                            "maximum": 65535,
+                            "description": "종료 포트 번호"
+                        }
+                    },
+                    "description": "Logdy가 사용할 포트 범위 설정"
+                }
+            }
         }
-      }
-    }
-  },
-  "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
-    "test": "vscode-test",
-    "package": "vsce package"
-  },
-  "devDependencies": {
-    "@types/vscode": "^1.74.0",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "20.x",
-    "@types/glob": "^8.1.0",
-    "@typescript-eslint/eslint-plugin": "^8.28.0",
-    "@typescript-eslint/parser": "^8.28.0",
-    "eslint": "^9.23.0",
-    "glob": "^11.0.0",
-    "mocha": "^10.1.0",
-    "typescript": "^5.8.2",
-    "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.4.1"
-  }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "pretest": "npm run compile && npm run lint",
+        "lint": "eslint src",
+        "test": "vscode-test",
+        "package": "vsce package"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.74.0",
+        "@types/mocha": "^10.0.10",
+        "@types/node": "20.x",
+        "@types/glob": "^8.1.0",
+        "@typescript-eslint/eslint-plugin": "^8.28.0",
+        "@typescript-eslint/parser": "^8.28.0",
+        "eslint": "^9.23.0",
+        "glob": "^11.0.0",
+        "mocha": "^10.1.0",
+        "typescript": "^5.8.2",
+        "@vscode/test-cli": "^0.0.10",
+        "@vscode/test-electron": "^2.4.1"
+    },
+    "license": "MIT"
 }
