@@ -2,7 +2,7 @@
     "name": "logdy-runner",
     "displayName": "Logdy Runner",
     "description": "Logdy 로그 뷰어를 안전하게 실행하는 VS Code 익스텐션",
-    "version": "1.1.5",
+    "version": "1.1.8",
     "publisher": "ruolee",
     "engines": {
         "vscode": "^1.74.0"
@@ -35,6 +35,21 @@
                 "command": "logdy-runner.refreshView",
                 "title": "새로고침",
                 "icon": "$(refresh)"
+            },
+            {
+                "command": "logdy-runner.startLogdy",
+                "title": "Logdy 시작",
+                "icon": "$(play)"
+            },
+            {
+                "command": "logdy-runner.stopLogdy",
+                "title": "Logdy 중지",
+                "icon": "$(stop)"
+            },
+            {
+                "command": "logdy-runner.selectWorkDirectory",
+                "title": "작업 디렉토리 선택",
+                "icon": "$(folder)"
             }
         ],
         "menus": {

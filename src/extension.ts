@@ -18,10 +18,23 @@ interface LogDirectory {
 
 const runningInstances = new Map<string, LogdyInstance>();
 let sidebarProvider: LogdySidebarProvider;
+// let treeDataProvider: LogdyTreeDataProvider; // Legacy - commented out
 let currentWorkDirectory: string = '';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Logdy Runner 익스텐션이 활성화되었습니다.');
+
+    // code-server 환경 감지
+    let isCodeServer = process.env.NODE_ENV === 'production' || 
+                       process.env.VSCODE_ENV === 'server' ||
+                       context.extensionMode === vscode.ExtensionMode.Production;
+    
+    console.log('Environment info:', {
+        isCodeServer,
+        extensionMode: context.extensionMode,
+        nodeEnv: process.env.NODE_ENV,
+        vscodeEnv: process.env.VSCODE_ENV
+    });
 
     // 초기 작업 디렉토리 설정
     const workspaceFolder = getActiveWorkspaceFolder();
@@ -32,34 +45,160 @@ export function activate(context: vscode.ExtensionContext) {
     // 사이드바 뷰 프로바이더 등록
     sidebarProvider = new LogdySidebarProvider(context.extensionUri);
     
-    const disposable = vscode.window.registerWebviewViewProvider(
-        'logdyView', 
-        sidebarProvider,
-        {
-            webviewOptions: {
-                retainContextWhenHidden: true
+    try {
+        const disposable = vscode.window.registerWebviewViewProvider(
+            'logdyView', 
+            sidebarProvider,
+            {
+                webviewOptions: {
+                    retainContextWhenHidden: true
+                }
             }
-        }
-    );
-    
-    context.subscriptions.push(disposable);
-    
-    // View 활성화 강제
-    setTimeout(() => {
-        vscode.commands.executeCommand('workbench.view.extension.logdyContainer');
-    }, 1000);
+        );
+        
+        context.subscriptions.push(disposable);
+        console.log('✅ WebviewViewProvider 등록 성공');
+    } catch (error) {
+        console.error('❌ WebviewViewProvider 등록 실패:', error);
+        vscode.window.showErrorMessage(`Logdy Runner 초기화 실패: ${error}`);
+    }
 
-    // 새로고침 명령어 등록
-    const refreshCommand = vscode.commands.registerCommand('logdy-runner.refreshView', () => {
-        sidebarProvider.refresh();
-    });
+    // Legacy TreeDataProvider 등록 (code-server fallback) - commented out since HTTPS works
+    /*
+    treeDataProvider = new LogdyTreeDataProvider();
+    try {
+        const treeView = vscode.window.createTreeView('logdyTreeView', {
+            treeDataProvider: treeDataProvider,
+            showCollapseAll: false
+        });
+        context.subscriptions.push(treeView);
+        console.log('✅ TreeDataProvider 등록 성공');
+        
+        // code-server에서는 TreeView 활성화
+        if (isCodeServer) {
+            vscode.commands.executeCommand('setContext', 'logdy.showTreeView', true);
+            console.log('🌐 code-server 모드: TreeView 활성화');
+        }
+    } catch (error) {
+        console.error('❌ TreeDataProvider 등록 실패:', error);
+    }
+    */
     
-    context.subscriptions.push(refreshCommand);
+    // View 활성화 강제 (code-server에서는 더 길게 대기)
+    const delay = isCodeServer ? 3000 : 1000;
+    setTimeout(() => {
+        vscode.commands.executeCommand('workbench.view.extension.logdyContainer').then(
+            () => console.log('View 활성화 명령 성공'),
+            (err: any) => console.log('View 활성화 명령 실패 (정상적인 경우일 수 있음):', err)
+        );
+    }, delay);
+
+    // 명령어 등록
+    const refreshCommand = vscode.commands.registerCommand('logdy-runner.refreshView', () => {
+        console.log('새로고침 명령 실행');
+        try {
+            sidebarProvider.refresh();
+            // treeDataProvider.refresh(); // Legacy - commented out
+        } catch (error) {
+            console.error('새로고침 실패:', error);
+        }
+    });
+
+    const startLogdyCommand = vscode.commands.registerCommand('logdy-runner.startLogdy', async (directory?: string, logFile?: string) => {
+        if (!directory || !logFile) {
+            // 사용자가 선택할 수 있도록 로그 디렉토리 목록 표시
+            const logDirectories = currentWorkDirectory ? findLogDirectories(currentWorkDirectory) : [];
+            if (logDirectories.length === 0) {
+                vscode.window.showErrorMessage('로그 파일을 찾을 수 없습니다. 먼저 작업 디렉토리를 선택하세요.');
+                return;
+            }
+            
+            const items = logDirectories.map(dir => ({
+                label: dir.logFiles[0]?.replace('.log', '') || 'unknown',
+                description: dir.path,
+                directory: dir.path,
+                logFile: dir.logFiles[0]
+            }));
+            
+            const selected = await vscode.window.showQuickPick(items, {
+                placeHolder: '시작할 로그를 선택하세요'
+            });
+            
+            if (selected) {
+                await startLogdy(selected.directory, selected.logFile);
+            }
+        } else {
+            await startLogdy(directory, logFile);
+        }
+        
+        // UI 업데이트
+        sidebarProvider.refresh();
+        // treeDataProvider.refresh(); // Legacy - commented out
+    });
+
+    const stopLogdyCommand = vscode.commands.registerCommand('logdy-runner.stopLogdy', async (directory?: string) => {
+        if (!directory) {
+            // 실행 중인 인스턴스 목록에서 선택
+            const runningDirs = Array.from(runningInstances.keys());
+            if (runningDirs.length === 0) {
+                vscode.window.showInformationMessage('실행 중인 Logdy가 없습니다.');
+                return;
+            }
+            
+            const items = runningDirs.map(dir => ({
+                label: path.basename(dir),
+                description: dir,
+                directory: dir
+            }));
+            
+            const selected = await vscode.window.showQuickPick(items, {
+                placeHolder: '중지할 Logdy를 선택하세요'
+            });
+            
+            if (selected) {
+                await stopLogdy(selected.directory);
+            }
+        } else {
+            await stopLogdy(directory);
+        }
+        
+        // UI 업데이트
+        sidebarProvider.refresh();
+        // treeDataProvider.refresh(); // Legacy - commented out
+    });
+
+    const selectWorkDirectoryCommand = vscode.commands.registerCommand('logdy-runner.selectWorkDirectory', async () => {
+        await selectWorkDirectory();
+        sidebarProvider.refresh();
+        // treeDataProvider.refresh(); // Legacy - commented out
+    });
+
+    // Legacy TreeView command - commented out
+    /*
+    const switchToTreeViewCommand = vscode.commands.registerCommand('logdy-runner.switchToTreeView', () => {
+        vscode.commands.executeCommand('setContext', 'logdy.showTreeView', true);
+        vscode.window.showInformationMessage('TreeView 모드로 전환되었습니다. (code-server 호환 모드)');
+    });
+    */
+    
+    context.subscriptions.push(
+        refreshCommand,
+        startLogdyCommand,
+        stopLogdyCommand,
+        selectWorkDirectoryCommand
+        // switchToTreeViewCommand // Legacy - commented out
+    );
 
     // 정리
     context.subscriptions.push(new vscode.Disposable(() => {
         cleanup();
     }));
+
+    // code-server 특별 처리
+    if (isCodeServer) {
+        console.log('🌐 code-server 환경에서 실행 중');
+        vscode.window.showInformationMessage('Logdy Runner가 code-server 환경에서 실행 중입니다. 일부 기능이 제한될 수 있습니다.');
+    }
 
     console.log('Logdy Runner 익스텐션 등록 완료');
 }
@@ -355,6 +494,26 @@ async function startLogdy(directory: string, logFile: string): Promise<void> {
     }
 }
 
+async function getForwardedAddress(port: number): Promise<string> {
+    try {
+        // VS Code의 포트 포워딩 API 사용
+        const forwardedPort = await vscode.env.asExternalUri(vscode.Uri.parse(`http://localhost:${port}`));
+        const forwardedUrl = forwardedPort.toString();
+        
+        console.log(`포트 ${port} 포워딩 URL: ${forwardedUrl}`);
+        
+        // code-server의 포워딩된 URL 반환 (예: https://domain.com/proxy/10001/)
+        if (forwardedUrl !== `http://localhost:${port}/`) {
+            return forwardedUrl;
+        }
+    } catch (error) {
+        console.error('포트 포워딩 URL 가져오기 실패:', error);
+    }
+    
+    // fallback: localhost 사용
+    return `http://localhost:${port}`;
+}
+
 async function stopLogdy(directory: string): Promise<void> {
     const instance = runningInstances.get(directory);
     if (instance) {
@@ -365,7 +524,12 @@ async function stopLogdy(directory: string): Promise<void> {
     }
 }
 
-function openLogdyWebView(url: string, port: number, title: string): void {
+async function openLogdyWebView(originalUrl: string, port: number, title: string): Promise<void> {
+    // code-server 포트 포워딩 주소 가져오기
+    const forwardedUrl = await getForwardedAddress(port);
+    
+    console.log(`웹뷰 URL: 원본 ${originalUrl} → 포워딩 ${forwardedUrl}`);
+    
     const panel = vscode.window.createWebviewPanel(
         'logdyWebView',
         `Logdy - ${title} :${port}`,
@@ -387,7 +551,9 @@ function openLogdyWebView(url: string, port: number, title: string): void {
     panel.webview.onDidReceiveMessage(async (message) => {
         switch (message.type) {
             case 'openExternal':
-                vscode.env.openExternal(vscode.Uri.parse(message.url));
+                // 외부 브라우저에서도 포워딩된 URL 사용
+                const externalUrl = await getForwardedAddress(port);
+                vscode.env.openExternal(vscode.Uri.parse(externalUrl));
                 break;
             case 'checkServer':
                 // VS Code API를 통해 서버 상태 확인
@@ -481,13 +647,13 @@ function openLogdyWebView(url: string, port: number, title: string): void {
 </head>
 <body>
     <div class="info">
-        <strong>Logdy 서버:</strong> ${url}<br>
+        <strong>Logdy 서버:</strong> ${forwardedUrl}<br>
         <strong>디렉토리:</strong> ${title}<br>
         <strong>포트:</strong> ${port}
     </div>
     
     <div class="iframe-container">
-        <iframe id="logdy-iframe" src="${url}" title="Logdy Interface" style="opacity: 0;"></iframe>
+        <iframe id="logdy-iframe" src="${forwardedUrl}" title="Logdy Interface" style="opacity: 0;"></iframe>
         <div id="iframe-overlay" class="iframe-overlay">
             <div class="loading">
                 <p>🔄 Logdy 인터페이스 로딩 중...</p>
@@ -516,7 +682,7 @@ function openLogdyWebView(url: string, port: number, title: string): void {
             overlay.innerHTML = \`
                 <div class="error">
                     <h3>❌ Logdy 인터페이스 로드 실패</h3>
-                    <p><strong>URL:</strong> ${url}</p>
+                    <p><strong>URL:</strong> ${forwardedUrl}</p>
                     <p><strong>오류:</strong> \${message}</p>
                     <p>외부 브라우저에서는 정상 작동할 수 있습니다.</p>
                     <div style="margin-top: 20px;">
@@ -544,7 +710,7 @@ function openLogdyWebView(url: string, port: number, title: string): void {
         function openExternal() {
             vscode.postMessage({
                 type: 'openExternal',
-                url: '${url}'
+                url: '${forwardedUrl}'
             });
         }
         
@@ -671,6 +837,90 @@ export function deactivate() {
     cleanup();
 }
 
+// Legacy TreeDataProvider for code-server fallback - commented out since HTTPS works
+/*
+class LogdyTreeItem extends vscode.TreeItem {
+    constructor(
+        public readonly label: string,
+        public readonly collapsibleState: vscode.TreeItemCollapsibleState,
+        public readonly directory?: string,
+        public readonly logFile?: string,
+        public readonly isRunning?: boolean
+    ) {
+        super(label, collapsibleState);
+        
+        if (directory && logFile) {
+            this.tooltip = `${directory}/${logFile}`;
+            this.description = this.isRunning ? '🟢 실행 중' : '🔴 중지';
+            this.contextValue = this.isRunning ? 'logdyItemRunning' : 'logdyItemStopped';
+            this.command = {
+                command: this.isRunning ? 'logdy-runner.stopLogdy' : 'logdy-runner.startLogdy',
+                title: this.isRunning ? 'Logdy 중지' : 'Logdy 시작',
+                arguments: [directory, logFile]
+            };
+        }
+    }
+}
+
+class LogdyTreeDataProvider implements vscode.TreeDataProvider<LogdyTreeItem> {
+    private _onDidChangeTreeData: vscode.EventEmitter<LogdyTreeItem | undefined | null | void> = new vscode.EventEmitter<LogdyTreeItem | undefined | null | void>();
+    readonly onDidChangeTreeData: vscode.Event<LogdyTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
+
+    refresh(): void {
+        this._onDidChangeTreeData.fire();
+    }
+
+    getTreeItem(element: LogdyTreeItem): vscode.TreeItem {
+        return element;
+    }
+
+    getChildren(element?: LogdyTreeItem): Thenable<LogdyTreeItem[]> {
+        if (!currentWorkDirectory) {
+            return Promise.resolve([
+                new LogdyTreeItem(
+                    '작업 디렉토리를 선택하세요',
+                    vscode.TreeItemCollapsibleState.None
+                )
+            ]);
+        }
+
+        if (!element) {
+            // 루트 노드들
+            const logDirectories = findLogDirectories(currentWorkDirectory);
+            
+            if (logDirectories.length === 0) {
+                return Promise.resolve([
+                    new LogdyTreeItem(
+                        '로그 파일을 찾을 수 없습니다',
+                        vscode.TreeItemCollapsibleState.None
+                    )
+                ]);
+            }
+
+            const items = logDirectories.map(dir => {
+                const isRunning = runningInstances.has(dir.path);
+                const logFileName = dir.logFiles[0]?.replace('.log', '') || 'unknown';
+                const displayName = dir.logFiles.length > 1 
+                    ? `${logFileName} (+${dir.logFiles.length - 1})`
+                    : logFileName;
+                
+                return new LogdyTreeItem(
+                    displayName,
+                    vscode.TreeItemCollapsibleState.None,
+                    dir.path,
+                    dir.logFiles[0],
+                    isRunning
+                );
+            });
+
+            return Promise.resolve(items);
+        }
+
+        return Promise.resolve([]);
+    }
+}
+*/
+
 class LogdySidebarProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
 
@@ -686,7 +936,9 @@ class LogdySidebarProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.options = {
             enableScripts: true,
-            localResourceRoots: [this._extensionUri]
+            localResourceRoots: [this._extensionUri],
+            enableCommandUris: true,
+            enableForms: true
         };
 
         this.updateWebview();
@@ -734,6 +986,7 @@ class LogdySidebarProvider implements vscode.WebviewViewProvider {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';">
     <title>Logdy Runner</title>
     <style>
         body {
@@ -896,29 +1149,102 @@ class LogdySidebarProvider implements vscode.WebviewViewProvider {
     </div>
 
     <script>
-        const vscode = acquireVsCodeApi();
+        // code-server 환경 감지
+        const isCodeServer = window.location.hostname !== 'localhost' || 
+                           window.location.protocol !== 'vscode-webview:' ||
+                           navigator.userAgent.includes('code-server');
+        
+        console.log('Environment:', {
+            isCodeServer,
+            hostname: window.location.hostname,
+            protocol: window.location.protocol,
+            userAgent: navigator.userAgent
+        });
+
+        let vscode;
+        try {
+            vscode = acquireVsCodeApi();
+            console.log('VS Code API acquired successfully');
+        } catch (error) {
+            console.error('Failed to acquire VS Code API:', error);
+            // code-server에서 실패할 경우 fallback
+            vscode = {
+                postMessage: function(message) {
+                    console.log('Fallback postMessage:', message);
+                    // 실제 기능은 제한되지만 오류 방지
+                }
+            };
+        }
 
         function selectWorkDirectory() {
-            vscode.postMessage({ type: 'selectWorkDirectory' });
+            try {
+                vscode.postMessage({ type: 'selectWorkDirectory' });
+            } catch (error) {
+                console.error('selectWorkDirectory error:', error);
+                alert('code-server 환경에서는 일부 기능이 제한될 수 있습니다.');
+            }
         }
 
         function startLogdy(directory, logFile) {
-            vscode.postMessage({ 
-                type: 'startLogdy', 
-                directory: directory,
-                logFile: logFile
-            });
+            try {
+                vscode.postMessage({ 
+                    type: 'startLogdy', 
+                    directory: directory,
+                    logFile: logFile
+                });
+            } catch (error) {
+                console.error('startLogdy error:', error);
+                alert('code-server 환경에서는 일부 기능이 제한될 수 있습니다.');
+            }
         }
 
         function stopLogdy(directory) {
-            vscode.postMessage({ 
-                type: 'stopLogdy', 
-                directory: directory
-            });
+            try {
+                vscode.postMessage({ 
+                    type: 'stopLogdy', 
+                    directory: directory
+                });
+            } catch (error) {
+                console.error('stopLogdy error:', error);
+                alert('code-server 환경에서는 일부 기능이 제한될 수 있습니다.');
+            }
         }
 
         function configurePortRange() {
-            vscode.postMessage({ type: 'configurePortRange' });
+            try {
+                vscode.postMessage({ type: 'configurePortRange' });
+            } catch (error) {
+                console.error('configurePortRange error:', error);
+                alert('code-server 환경에서는 일부 기능이 제한될 수 있습니다.');
+            }
+        }
+        
+        // code-server 환경 정보 표시
+        if (isCodeServer) {
+            console.warn('Running in code-server environment. Some features may be limited.');
+            
+            // 환경 정보를 사용자에게 표시
+            setTimeout(() => {
+                const envInfo = document.createElement('div');
+                envInfo.style.cssText = \`
+                    position: fixed;
+                    top: 10px;
+                    right: 10px;
+                    background: #ff9800;
+                    color: white;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-size: 0.8em;
+                    z-index: 1000;
+                    cursor: pointer;
+                \`;
+                envInfo.textContent = 'code-server 환경';
+                envInfo.title = 'code-server 환경에서 실행 중입니다. 일부 기능이 제한될 수 있습니다.';
+                document.body.appendChild(envInfo);
+                
+                // 5초 후 자동 제거
+                setTimeout(() => envInfo.remove(), 5000);
+            }, 1000);
         }
     </script>
 </body>
