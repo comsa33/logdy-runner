@@ -790,7 +790,7 @@ class LogdySidebarProvider implements vscode.WebviewViewProvider {
             align-items: center;
             margin-bottom: 4px;
         }
-        .directory-name {
+        .log-file-name {
             font-weight: bold;
             font-size: 0.9em;
         }
@@ -860,7 +860,7 @@ class LogdySidebarProvider implements vscode.WebviewViewProvider {
                 <div class="directory-header">
                     <div style="display: flex; align-items: center;">
                         <div class="status-indicator ${isRunning ? 'running' : 'stopped'}"></div>
-                        <span class="directory-name">${dir.name}</span>
+                        <span class="log-file-name">${dir.logFiles[0]?.replace('.log', '') || 'unknown'}${dir.logFiles.length > 1 ? ` (+${dir.logFiles.length - 1})` : ''}</span>
                         ${isRunning ? `<span style="margin-left: 8px; font-size: 0.8em; color: #28a745;">:${instance?.port}</span>` : ''}
                     </div>
                     ${isRunning ? 
